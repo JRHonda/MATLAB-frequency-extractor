@@ -1,0 +1,206 @@
+%  MATLAB
+%  FundamentFrequencyExtractor
+%  
+%
+%  Created by Justin Honda on 4/20/17.
+%  Copyright © 2017 Justin Honda. All rights reserved.
+%
+%  The following script takes a short recording and gives back the fundamental frequency.  This code
+%  was specifically designed to receive voice generated signals, however, musical instruments and even
+%  tone generators will work.  If you desire to record signals below 80 Hz or above 500 Hz, you must
+%  modify the code.  Please read more on the Nyquist Sampling theorem to understand how.  The code has
+%  explicit comments for each line and with a good understanding of Digital Signal Processing (DSP), you
+%  should be able to see where modifications are required.  Hint: Line 116 + attached reading
+
+
+
+clear all;
+close all;
+
+info = audiodevinfo      % Selects audio recording device of computer system
+info.input(1)
+
+clc;
+fs             = 88.2e3; % Sampling Frequency, 88200 samples/second  
+                         % I made it higher for more accurate results
+noBits         = 16;     % Reservation for data
+noChannels     = 1;      % # of audio recording devices
+
+recordObject = audiorecorder(fs,noBits,noChannels); % Audio Recording data
+disp('Start speaking...');
+pause(1);
+record(recordObject); % Data is recorded
+pause(.2); % Data is recorded for 0.2 seconds in order to keep number of samples down for DFT
+stop(recordObject);
+disp('End of Recording.');
+
+x = getaudiodata(recordObject); % "getaudiodata" is a built-in MATLAB function
+                                % x is micro or milli volt along y-axis                                
+noSamples = length(x);          
+t = [1:noSamples]/fs;           % Sample indices divided by sample frequencies
+noFrequencies = noSamples;
+frequency = linspace(0,fs,noFrequencies);
+
+% Sometimes the recorder delays and does not
+% capture the required amount of samples, and therefore is
+% a bad recording.  That is the reason for the following if-then
+% statement. Please try again shortly after displaying the "Bad
+% Recording" message.
+if length(x) < 15000
+    disp('Bad Recording...please try again')
+    return
+else
+end
+
+%%
+% Apply Hamming window to a section of the audio signal
+winLow     = length(x)*(3/8);
+winHigh    = length(x)*(5/8);
+winHamming = winHigh - winLow;
+
+windowed = x(winLow:winHigh-1).*hamming(winHamming);%windowed = x(2000:6192).*hamming(4193);
+figure;
+plot(windowed)
+title('Hamming Window')
+
+%%
+%  For this section the order of operations are as follows:  
+%  DFT --->  abs(DFT) ---> log(abs(DFT) ---> inverse(log(abs(DFT)
+
+N = length(windowed);
+for k = 1:1:length(windowed);
+    for n = 1:1:length(windowed);
+        x_FT(n) = windowed(n)*exp(-j*2*pi*k*n/N);  
+        n = n+1;
+        k = k;
+    end
+    X_FT(k) = sum(x_FT);
+    clear x_FT
+    k = k+1;
+end
+G = X_FT;
+
+Gabs = abs(G);
+
+Gdft = 10*log10(Gabs);
+
+M = length(Gdft);
+for k = 1:1:length(Gdft);
+    for n = 1:1:length(Gdft);
+        g_FT(n) = Gdft(n)*exp(-j*2*pi*k*n/M);  
+        n = n+1;
+        k = k;
+    end
+    G_FT(k) = sum(g_FT);
+    clear x_FT
+    k = k+1;
+end
+figure;
+plot(abs(G_FT))
+xlabel('Quefrency (bin #)')
+ylabel('Amplitude')
+title('Quefrency Plot')
+xlim([0 length(G_FT)/2])
+
+%%
+% For this section I am taking out the quefrency range that is outside the
+% typical human vocal range.  The index location of the max within the
+% following range is the quefrency, or bin, that correlates to the
+% fundamental period.  Thus, we can calculate the fundamental frequency from
+% this.  
+% Fundamental Frequency = (Sampling Frequency)/(bin # of quefrency)
+for i = 1:1:176;
+    G_FTnew(i) = 0;
+end
+clear i
+for i = 177:1:1076;
+    G_FTnew(i) = G_FT(i);
+end
+figure;
+plot(abs(G_FTnew))
+xlabel('Quefrency (bin #)')
+ylabel('Amplitude')
+title('Narrowed Quefrency Plot')
+
+[idx,rahmonic] = find(G_FTnew == max(G_FTnew));
+fundfreq = fs/rahmonic;
+H = fundfreq;
+
+%  List of if-then conditions for all musical notes in order from lowest
+%  frequency to highest
+%  This list covers an A sub4 tune of 440 Hz
+%  "sub#" is the subscript number of the letter listed to the left.
+%  "#" means "Sharp"
+disp('Musical note is...')
+if     H < 82.41
+    disp('Out of vocal range of humans')
+elseif 82.41 < H & H < 84.49
+    disp('E sub2')
+elseif 84.50 < H & H < 89.7
+    disp('F sub2')
+elseif 89.7 < H & H < 95.5
+    disp('F sub2 # or G sub2 flat')
+elseif 95.5 < H & H < 100.4
+    disp('G sub2')
+elseif 100.4 < H & H < 107.5
+    disp('G sub2 # or A sub2 flat')
+elseif 107.5 < H & H < 113
+    disp('A sub2')
+elseif 113 < H & H < 120
+    disp('A sub2 # or B sub2 flat')
+elseif 120 < H & H < 127
+    disp('B sub2')  
+elseif 127 < H & H < 134.8
+    disp('C sub3')
+elseif 134.8 < H & H < 142.6
+    disp('C sub3 # or D sub3 flat')
+elseif 142.6 < H & H < 150.3
+    disp('D sub3')
+elseif 150.3 < H & H < 160
+    disp('D sub3 # or E sub3 flat')
+elseif 160 < H & H < 169.81
+    disp('E sub3')
+elseif 169.81 < H & H < 179.61
+    disp('F sub3')
+elseif 179.61 < H & H < 190.5
+    disp('F sub3 # or G sub3 flat')
+elseif 190.5 < H & H < 201
+    disp('G sub3')
+elseif 201 < H & H < 214
+    disp('G sub3 # or A sub3 flat')
+elseif 214 < H & H < 227
+    disp('A sub3')
+elseif 227 < H & H < 239.5
+    disp('A sub3 # or B sub3 flat')
+elseif 239.5 < H & H < 254
+    disp('B sub3')
+elseif 254 < H & H < 269.63
+    disp('C sub4')
+elseif 269.63 < H & H < 285.18
+    disp('C sub4 # or D sub4 flat')
+elseif 285.18 < H & H < 302.66
+    disp('D sub4')
+elseif 302.66 < H & H < 320.13
+    disp('D sub4 # or E sub4 flat')
+elseif 320.13 < H & H < 339.63
+    disp('E sub4')
+elseif 339.53 < H & H < 359.23
+    disp('F sub4')
+elseif 359.23 < H & H < 380.99
+    disp('F sub4 # or G sub4 flat')
+elseif 380.99 < H & H < 403.00
+    disp('G sub4')
+elseif 403.00 < H & H < 427.30
+    disp('G sub4 # or A sub4 flat')
+elseif 427.30 < H & H < 453.00
+    disp('Asub 4')
+elseif 453.00 < H & H < 479.16
+    disp('A sub4 # or B sub4 flat')
+elseif 479.16 < H & H < 508.88
+    disp('B sub4')
+else
+    disp('Bad Recording')
+end
+
+formatSpec = 'The fundamental frequency is %4.2f Hz\n';
+fprintf(formatSpec,fundfreq)
