@@ -2,8 +2,8 @@
 %  FundamentFrequencyExtractor
 %  
 %
-%  Created by Justin Honda on 4/20/17.
-%  Copyright © 2017 Justin Honda. All rights reserved.
+%  Created by JRHonda on 4/20/17.
+%  Copyright © 2017 JRHonda. All rights reserved.
 %
 %  The following script takes a short recording and gives back the fundamental frequency.  This code
 %  was specifically designed to receive voice generated signals, however, musical instruments and even
